@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 #
 # Decode Btrfs send stream
+# btrfs send -p snap_old snap_cur --no-data -f /tmp/snaps-diff
 #
 # Author: Jean-Denis Girard <jd.girard@sysnux.pf>
-#
+
 
 from struct import unpack
 from sys import argv, exit, stdin, stderr
