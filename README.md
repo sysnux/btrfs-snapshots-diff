@@ -11,6 +11,7 @@ displays the differences.
 
 Can read data from parent and current snapshots, or from diff
 file created with:
+
 `btrfs send -p parent chid --no-data -f /tmp/snaps-diff`
 
 Usage
@@ -33,7 +34,10 @@ Requirements
 ------------
 No requirements besides Python-2!
 
+License
+-------
+GPL v2, see LICENSE file.
 
-Made in beautiful Tahiti (French Polynesia) by [SysNux](http://www.sysnux.pf/).
+Made in beautiful Tahiti (French Polynesia) by [SysNux](http://www.sysnux.pf/ "Systèmes Linux en Polynésie française").
 
 Copyright (c) 2016 Jean-Denis Girard <jd.girard@sysnux.pf>
