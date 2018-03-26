@@ -348,8 +348,8 @@ if __name__ == "__main__":
 
     if args.parent is not None:
         if args.child is not None:
-            cmd = ['btrfs', 'send', '-p', args.parent, args.child, '--no-data',
-                   '-f', '/tmp/snaps-diff']
+            cmd = ['btrfs', 'send', '-p', args.parent, '--no-data',
+                   '-f', '/tmp/snaps-diff', args.child]
             try:
                 subprocess.check_call(cmd)
 
