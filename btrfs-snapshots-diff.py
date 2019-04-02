@@ -155,16 +155,6 @@ class BtrfsStream(object):
                     (command[13:].lower(), count))
                 commands.append((command[13:].lower(), path, path_to))
 
-            elif command == 'BTRFS_SEND_C_SYMLINK':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
-                idx2, ino = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
-                idx2, path_link = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH_LINK', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), path_link))
-
             elif command == 'BTRFS_SEND_C_LINK':
                 idx2, path = self._tlv_get_string(
                     'BTRFS_SEND_A_PATH', idx + self.l_head)
@@ -184,12 +174,33 @@ class BtrfsStream(object):
                     (command[13:].lower(), count))
                 commands.append((command[13:].lower(), atime, mtime, ctime))
 
-            elif command in 'BTRFS_SEND_C_MKFILE BTRFS_SEND_C_MKDIR BTRFS_SEND_C_MKFIFO BTRFS_SEND_C_MKSOCK BTRFS_SEND_C_UNLINK BTRFS_SEND_C_RMDIR '.split():
+            elif command in 'BTRFS_SEND_C_MKFILE BTRFS_SEND_C_MKDIR BTRFS_SEND_C_UNLINK BTRFS_SEND_C_RMDIR'.split():
                 idx2, path = self._tlv_get_string(
                     'BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, ino = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
                 modified.setdefault(path, []).append(
                     (command[13:].lower(), count))
                 commands.append((command[13:].lower()))
+
+            elif command == 'BTRFS_SEND_C_SYMLINK':
+                idx2, path = self._tlv_get_string(
+                    'BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, ino = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
+                idx2, path_link = self._tlv_get_string(
+                    'BTRFS_SEND_A_PATH_LINK', idx2)
+                modified.setdefault(path, []).append(
+                    (command[13:].lower(), count))
+                commands.append((command[13:].lower(), path_link))
+
+            elif command in 'BTRFS_SEND_C_MKNOD BTRFS_SEND_C_MKFIFO BTRFS_SEND_C_MKSOCK':
+                idx2, path = self._tlv_get_string(
+                    'BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, ino = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
+                idx2, rdev = self._tlv_get_u64('BTRFS_SEND_A_RDEV', idx2)
+                idx2, mode = self._tlv_get_u64('BTRFS_SEND_A_MODE', idx2)
+                modified.setdefault(path, []).append(
+                    (command[13:].lower(), count))
+                commands.append((command[13:].lower(), mode, rdev))
 
             elif command == 'BTRFS_SEND_C_TRUNCATE':
                 idx2, path = self._tlv_get_string(
@@ -223,15 +234,6 @@ class BtrfsStream(object):
                 modified.setdefault(path, []).append(
                     (command[13:].lower(), count))
                 commands.append((command[13:].lower(), uuid, ctransid))
-
-            elif command == 'BTRFS_SEND_C_MKNOD':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
-                idx2, mode = self._tlv_get_u64('BTRFS_SEND_A_MODE', idx2)
-                idx2, rdev = self._tlv_get_u64('BTRFS_SEND_A_RDEV', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), mode, rdev))
 
             elif command == 'BTRFS_SEND_C_SET_XATTR':
                 idx2, path = self._tlv_get_string(
