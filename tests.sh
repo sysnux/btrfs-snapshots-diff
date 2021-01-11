@@ -27,6 +27,7 @@ mkdir dir
 mkfifo fifo
 ln file hardlink
 ln -s file symlink
+echo 'Hello Btrfs' > file
 popd
 
 btrfs fil sync ./btrfs-diff-tests

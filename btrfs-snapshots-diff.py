@@ -1,48 +1,55 @@
-#! /usr/bin/env python2
-# -*- coding: utf-8 -*-
+#! /usr/bin/env python
+# vim: tabstop=4 expandtab shiftwidth=4 softtabstop=4
 
-# Displays differences in 2 Btrfs snapshots (from the same subvolume
-# obviously).
-# Uses btrfs send to compute the differences, decodes the stream and
-# displays the differences.
-# Can read data from parent and current snapshots, or from diff
-# file created with:
-# btrfs send -p parent chid --no-data -f /tmp/snaps-diff
+''' btrfs-snapshots-diff
 
-# Copyright (c) 2016 Jean-Denis Girard <jd.girard@sysnux.pf>
-#
-# Permission is hereby granted, free of charge, to any person
-# obtaining a copy of this software and associated documentation files
-# (the "Software"), to deal in the Software without restriction,
-# including without limitation the rights to use, copy, modify, merge,
-# publish, distribute, sublicense, and/or sell copies of the Software,
-# and to permit persons to whom the Software is furnished to do so,
-# subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be
-# included in all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-# BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-# ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-# CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+Displays differences in 2 Btrfs snapshots (from the same subvolume
+obviously).
+Uses btrfs send to compute the differences, decodes the stream and
+displays the differences.
+Can read data from parent and current snapshots, or from diff
+file created with:
+btrfs send -p parent chid --no-data -f /tmp/snaps-diff
 
 
-from struct import unpack
-from sys import argv, exit, stdin, stderr, exc_info
-printerr = stderr.write
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation files
+(the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of the Software,
+and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+Copyright (c) 2016-2021 Jean-Denis Girard <jd.girard@sysnux.pf>
+© SysNux http://www.sysnux.pf/
+'''
+
+import time
 import argparse
 import subprocess
-import time
-from collections import OrderedDict
 from os import unlink
+from sys import exit, stderr # pylint: disable=redefined-builtin
+from struct import unpack
+from collections import OrderedDict
 
+printerr = stderr.write
 
-class BtrfsStream(object):
+class BtrfsStream():
+    ''' Btrfs send stream representation
+    '''
 
     # From btrfs/send.h
     send_cmds = 'BTRFS_SEND_C_UNSPEC BTRFS_SEND_C_SUBVOL BTRFS_SEND_C_SNAPSHOT BTRFS_SEND_C_MKFILE BTRFS_SEND_C_MKDIR BTRFS_SEND_C_MKNOD BTRFS_SEND_C_MKFIFO BTRFS_SEND_C_MKSOCK BTRFS_SEND_C_SYMLINK BTRFS_SEND_C_RENAME BTRFS_SEND_C_LINK BTRFS_SEND_C_UNLINK BTRFS_SEND_C_RMDIR BTRFS_SEND_C_SET_XATTR BTRFS_SEND_C_REMOVE_XATTR BTRFS_SEND_C_WRITE BTRFS_SEND_C_CLONE BTRFS_SEND_C_TRUNCATE BTRFS_SEND_C_CHMOD BTRFS_SEND_C_CHOWN BTRFS_SEND_C_UTIMES BTRFS_SEND_C_END BTRFS_SEND_C_UPDATE_EXTENT'.split()
@@ -60,72 +67,70 @@ class BtrfsStream(object):
 
         # Read send stream
         try:
-            f_stream = open(stream_file)
-            self.stream = f_stream.read()
-            f_stream.close()
+            with open(stream_file, 'rb') as f_stream:
+                self.stream = f_stream.read()
 
-        except:
+        except IOError:
             printerr('Error reading stream\n')
             exit(1)
 
         if delete:
             try:
                 unlink(stream_file)
-            except:
-                printerr('Warning: could not delete stream file "%s"\n' %
-                         stream_file)
+            except OSError:
+                printerr('Warning: could not delete stream file "{stream_file}"\n')
 
         if len(self.stream) < 17:
             printerr('Invalide stream length\n')
             self.version = None
 
-        magic, null, self.version = unpack('<12scI', self.stream[0:17])
-        if magic != 'btrfs-stream':
+        magic, _, self.version = unpack('<12scI', self.stream[0:17])
+        if magic != b'btrfs-stream':
             printerr('Not a Btrfs stream!\n')
             self.version = None
 
-    def tlv_get(self, attr_type, index):
+    def _tlv_get(self, attr_type, index):
         attr, l_attr = unpack('<HH', self.stream[index:index + self.l_tlv])
         if self.send_attrs[attr] != attr_type:
-            raise ValueError('Unexpected attribute %s' % self.send_attrs[attr])
-        ret = unpack('<%dB' % l_attr, self.stream[
-                      index + self.l_tlv:index + self.l_tlv + l_attr])
+            raise ValueError(f'Unexpected attribute {self.send_attrs[attr]}')
+        ret = unpack(f'<{l_attr}B',
+                     self.stream[index + self.l_tlv:index + self.l_tlv + l_attr])
         return index + self.l_tlv + l_attr, ret
 
     def _tlv_get_string(self, attr_type, index):
         attr, l_attr = unpack('<HH', self.stream[index:index + self.l_tlv])
         if self.send_attrs[attr] != attr_type:
-            raise ValueError('Unexpected attribute %s' % self.send_attrs[attr])
-        ret, = unpack('<%ds' % l_attr, self.stream[
-                      index + self.l_tlv:index + self.l_tlv + l_attr])
-        return index + self.l_tlv + l_attr, ret
+            raise ValueError(f'Unexpected attribute {self.send_attrs[attr]}')
+        ret, = unpack(f'<{l_attr}s',
+                      self.stream[index + self.l_tlv:index + self.l_tlv + l_attr])
+        return index + self.l_tlv + l_attr, ret.decode('utf8')
 
     def _tlv_get_u64(self, attr_type, index):
         attr, l_attr = unpack('<HH', self.stream[index:index + self.l_tlv])
         if self.send_attrs[attr] != attr_type:
-            raise ValueError('Unexpected attribute %s' % self.send_attrs[attr])
-        ret, = unpack('<Q', self.stream[
-                      index + self.l_tlv:index + self.l_tlv + l_attr])
+            raise ValueError(f'Unexpected attribute {self.send_attrs[attr]}')
+        ret, = unpack('<Q',
+                      self.stream[index + self.l_tlv:index + self.l_tlv + l_attr])
         return index + self.l_tlv + l_attr, ret
 
     def _tlv_get_uuid(self, attr_type, index):
         attr, l_attr = unpack('<HH', self.stream[index:index + self.l_tlv])
         if self.send_attrs[attr] != attr_type:
-            raise ValueError('Unexpected attribute %s' % self.send_attrs[attr])
-        ret = unpack('<%dB' % self.BTRFS_UUID_SIZE,
+            raise ValueError(f'Unexpected attribute {self.send_attrs[attr]}')
+        ret = unpack(f'<{self.BTRFS_UUID_SIZE}B',
                      self.stream[index + self.l_tlv:index + self.l_tlv + l_attr])
         return index + self.l_tlv + l_attr, ''.join(['%02x' % x for x in ret])
 
     def _tlv_get_timespec(self, attr_type, index):
         attr, l_attr = unpack('<HH', self.stream[index:index + self.l_tlv])
         if self.send_attrs[attr] != attr_type:
-            raise ValueError('Unexpected attribute %s' % self.send_attrs[attr])
-        s, ns = unpack('<QL', self.stream[
-                       index + self.l_tlv:index + self.l_tlv + l_attr])
-        return index + self.l_tlv + l_attr, float(s) + ns * 1e-9
+            raise ValueError(f'Unexpected attribute {self.send_attrs[attr]}')
+        sec, nanos = unpack('<QL',
+                            self.stream[index + self.l_tlv:index + self.l_tlv + l_attr])
+        return index + self.l_tlv + l_attr, float(sec) + nanos * 1e-9
 
     def decode(self):
-        # Decode commands + attributes
+        ''' Decodes commands + attributes from send stream '''
         idx = 17
         count = 0
         # List of commands
@@ -135,12 +140,12 @@ class BtrfsStream(object):
 
         while True:
 
-            l_cmd, cmd, crc = unpack(
-                '<IHI', self.stream[idx:idx + self.l_head])
+            # 3rd field is CRC, not used here
+            l_cmd, cmd, _ = unpack('<IHI', self.stream[idx:idx + self.l_head])
             try:
                 command = self.send_cmds[cmd]
-            except:
-                raise ValueError('Unkown command %d' % cmd)
+            except IndexError:
+                raise ValueError(f'Unkown command {cmd}')
 
             if command == 'BTRFS_SEND_C_RENAME':
                 idx2, path = self._tlv_get_string(
@@ -177,15 +182,14 @@ class BtrfsStream(object):
             elif command in 'BTRFS_SEND_C_MKFILE BTRFS_SEND_C_MKDIR BTRFS_SEND_C_UNLINK BTRFS_SEND_C_RMDIR'.split():
                 idx2, path = self._tlv_get_string(
                     'BTRFS_SEND_A_PATH', idx + self.l_head)
-                idx2, ino = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
                 modified.setdefault(path, []).append(
                     (command[13:].lower(), count))
                 commands.append((command[13:].lower()))
 
             elif command == 'BTRFS_SEND_C_SYMLINK':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
-                idx2, ino = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
+                # 2nd field is inode, not used here
+                idx2, _ = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
                 idx2, path_link = self._tlv_get_string(
                     'BTRFS_SEND_A_PATH_LINK', idx2)
                 modified.setdefault(path, []).append(
@@ -195,7 +199,8 @@ class BtrfsStream(object):
             elif command in 'BTRFS_SEND_C_MKNOD BTRFS_SEND_C_MKFIFO BTRFS_SEND_C_MKSOCK':
                 idx2, path = self._tlv_get_string(
                     'BTRFS_SEND_A_PATH', idx + self.l_head)
-                idx2, ino = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
+                # 2nd field is inode, not used here
+                idx2, _ = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
                 idx2, rdev = self._tlv_get_u64('BTRFS_SEND_A_RDEV', idx2)
                 idx2, mode = self._tlv_get_u64('BTRFS_SEND_A_MODE', idx2)
                 modified.setdefault(path, []).append(
@@ -240,7 +245,7 @@ class BtrfsStream(object):
                     'BTRFS_SEND_A_PATH', idx + self.l_head)
                 idx2, xattr_name = self._tlv_get_string(
                     'BTRFS_SEND_A_XATTR_NAME', idx2)
-                idx2, xattr_data = self.tlv_get(
+                idx2, xattr_data = self._tlv_get(
                     'BTRFS_SEND_A_XATTR_DATA', idx2)
                 modified.setdefault(path, []).append(
                     (command[13:].lower(), count))
@@ -260,7 +265,7 @@ class BtrfsStream(object):
                     'BTRFS_SEND_A_PATH', idx + self.l_head)
                 idx2, file_offset = self._tlv_get_u64(
                     'BTRFS_SEND_A_FILE_OFFSET', idx2)
-                idx2, data = self.tlv_get(
+                idx2, data = self._tlv_get(
                     'BTRFS_SEND_A_DATA', idx2)
                 modified.setdefault(path, []).append(
                     (command[13:].lower(), count))
@@ -280,12 +285,15 @@ class BtrfsStream(object):
                     'BTRFS_SEND_A_CLONE_TRANSID', idx2)
                 idx2, clone_path = self._tlv_get_string(
                     'BTRFS_SEND_A_CLONE_PATH', idx + self.l_head)  # BTRFS_SEND_A_CLONE8PATH
-                idx2, clone_offset = self._tlv_get_u64(
-                    'BTRFS_SEND_A_CLONE_OFFSET', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), file_offset, clone_len,
-                                 clone_uuid, clone_transid, clone_path))
+                # 2nd field is clone offset, not used here
+                idx2, _ = self._tlv_get_u64('BTRFS_SEND_A_CLONE_OFFSET', idx2)
+                modified.setdefault(path, []).append((command[13:].lower(), count))
+                commands.append((command[13:].lower(),
+                                 file_offset,
+                                 clone_len,
+                                 clone_uuid,
+                                 clone_transid,
+                                 clone_path))
 
             elif command == 'BTRFS_SEND_C_CHMOD':
                 idx2, path = self._tlv_get_string(
@@ -323,7 +331,7 @@ class BtrfsStream(object):
 
             else:
                 # Shoud not happen
-                raise ValueError('Unexpected command %s' % command)
+                raise ValueError(f'Unexpected command "{command}"')
 
             idx += self.l_head + l_cmd
             count += 1
@@ -331,25 +339,37 @@ class BtrfsStream(object):
         return modified, commands
 
 
-if __name__ == "__main__":
+def time_str(epoch):
+    ''' Epoch => string
+    1610391575.9802792 => '2021/01/11 08:59:35' '''
+    return time.strftime('%Y/%m/%d %H:%M:%S', time.localtime(epoch))
+
+def main():
+    ''' Main ! '''
+
     # Parse command line arguments
-    parser = argparse.ArgumentParser(
-                    description="Display differences between 2 Btrfs snapshots")
-    parser.add_argument('-p', '--parent',
+    parser = argparse.ArgumentParser(description="Display differences between 2 Btrfs snapshots")
+    parser.add_argument('-p',
+                        '--parent',
                         help='parent snapshot (must exists and be readonly)')
-    parser.add_argument('-c', '--child',
+    parser.add_argument('-c',
+                        '--child',
                         help='child snapshot (will be created if it does not exist)')
     parser.add_argument('-f', '--file', help="diff file")
-    parser.add_argument('-t', '--filter', action='store_true',
+    parser.add_argument('-t',
+                        '--filter',
+                        action='store_true',
                         help='does not display temporary files, nor all time modifications (just latest)')
-    parser.add_argument('-s', '--csv', action='store_true',
+    parser.add_argument('-s',
+                        '--csv',
+                        action='store_true',
                         help='CSV output')
 #    parser.add_argument('-v', '--verbose', action="count", default=0,
 #                        help="increase verbosity")
     args = parser.parse_args()
 
-    if args.parent is not None:
-        if args.child is not None:
+    if args.parent:
+        if args.child:
             # TODO add option to ommit '--no-data'
             stream_file = '/tmp/snaps-diff'
             cmd = ['btrfs', 'send', '-p', args.parent, '--no-data',
@@ -357,9 +377,8 @@ if __name__ == "__main__":
             try:
                 subprocess.check_call(cmd)
 
-            except:
-                printerr('Error: %s\nexecuting "%s"\n' %
-                         (exc_info()[0], ' '.join(cmd)))
+            except subprocess.CalledProcessError:
+                printerr('Error: CalledProcessError\nexecuting "{' '.join(cmd)}"\n')
                 exit(1)
         else:
             printerr('Error: parent needs child!\n')
@@ -375,17 +394,17 @@ if __name__ == "__main__":
 
     stream = BtrfsStream(stream_file)
     if stream.version is None:
-       exit(1)
-    print 'Found a valid Btrfs stream header, version %d' % stream.version
+        exit(1)
+    print(f'Found a valid Btrfs stream header, version {stream.version}')
     modified, commands = stream.decode()
 
     # Temporary files / dirs / links... created by btrfs send: they are later
     # renamed to definitive files / dirs / links...
     if args.filter:
-        import re
+        import re # pylint: disable=import-outside-toplevel
         re_tmp = re.compile(r'o\d+-\d+-0$')
 
-    for path, actions in modified.iteritems():
+    for path, actions in modified.items():
 
         if args.filter and re_tmp.match(path):
             # Don't display files created temporarily and later renamed
@@ -393,7 +412,7 @@ if __name__ == "__main__":
                     actions[1][0] == 'rename') and \
                     not (actions[0][0] == ('renamed_from') and \
                     actions[1][0] == 'rmdir'):
-                print path, '\n\t', actions, '=' * 20
+                print(f'{path}\n\t{actions} {"=" * 20}')
             continue
 
         if path == '':
@@ -403,77 +422,79 @@ if __name__ == "__main__":
         extents = []
         print_actions = []
 
-        for a in actions:
+        for action in actions:
 
-            cmd = commands[a[1]]
+            cmd = commands[action[1]]
 
-            if prev_action == 'update_extent' and a[0] != 'update_extent':
+            if prev_action == 'update_extent' and action[0] != 'update_extent':
                 print_actions.append('update extents %d -> %d' % (
                     extents[0][0],
                     extents[-1][0] + extents[-1][1]))
 
-            if a[0] == 'renamed_from':
+            if action[0] == 'renamed_from':
                 if args.filter and re_tmp.match(cmd[1]):
-                    if prev_action=='unlink':
-                        del(print_actions[-1])
+                    if prev_action == 'unlink':
+                        del print_actions[-1]
                         print_actions.append('rewritten')
                     else:
                         print_actions.append('created')
                 else:
                     print_actions.append('renamed from "%s"' % cmd[1])
 
-            elif a[0] == 'set_xattr':
+            elif action[0] == 'set_xattr':
                 print_actions.append('xattr %s %s' % cmd[1:])
 
-            elif a[0] == 'update_extent':
+            elif action[0] == 'update_extent':
                 extents .append(cmd[1:])
 
-            elif a[0] == 'truncate':
+            elif action[0] == 'truncate':
                 print_actions.append('truncate %d' % cmd[1])
 
-            elif a[0] == 'chown':
+            elif action[0] == 'chown':
                 print_actions.append('owner %d:%d' % cmd[1:])
 
-            elif a[0] == 'chmod':
+            elif action[0] == 'chmod':
                 print_actions.append('mode %o' % cmd[1])
 
-            elif a[0] == 'link':
+            elif action[0] == 'link':
                 print_actions.append('link to "%s"' % cmd[1])
 
-            elif a[0] == 'symlink':
+            elif action[0] == 'symlink':
                 print_actions.append('symlink to "%s"' % cmd[1])
 
-            elif a[0] in ('unlink', 'mkfile', 'mkdir', 'mkfifo'):
-                print_actions.append('%s' % a[0])
+            elif action[0] in ('unlink', 'mkfile', 'mkdir', 'mkfifo'):
+                print_actions.append(action[0])
 
-            elif a[0] == 'rename':
+            elif action[0] == 'rename':
                 print_actions.append('rename to "%s"' % cmd[2])
 
-            elif a[0] == 'utimes':
-                if args.filter and prev_action=='utimes':
-                   # Print only last utimes
-                   del(print_actions[-1])
-                print_actions.append('times a=%s m=%s c=%s' % (
-                    time.strftime('%Y/%m/%d %H:%M:%S', time.localtime(cmd[1])),
-                    time.strftime('%Y/%m/%d %H:%M:%S', time.localtime(cmd[2])),
-                    time.strftime('%Y/%m/%d %H:%M:%S', time.localtime(cmd[3]))
-                ))
+            elif action[0] == 'utimes':
+                if args.filter and prev_action == 'utimes':
+                    # Print only last utimes
+                    del print_actions[-1]
+                print_actions.append(f'times a={time_str(cmd[1])} ' \
+                                     f'm={time_str(cmd[2])} ' \
+                                     f'c={time_str(cmd[3])}')
 
-            elif a[0] == 'snapshot':
+            elif action[0] == 'snapshot':
                 print_actions.append(
                     'snapshot: uuid=%s, ctrasid=%d, clone_uuid=%s, clone_ctransid=%d' % cmd[1:])
 
-            elif a[0] == 'write':
+            elif action[0] == 'write':
                 print_actions.append('write: from %d' % cmd[1])
                 print_actions.append('data: \n' + ''.join([chr(c) for c in cmd[2]]))  # convert bytes to string
 
             else:
-                print_actions.append('%s, %s %s' % (a, cmd, '-' * 20))
-            prev_action = a[0]
+                print_actions.append('%s, %s %s' % (action, cmd, '-' * 20))
+            prev_action = action[0]
 
         if args.csv:
-            print '%s;%s' % (path, ';'.join(print_actions))
+            print('%s;%s' % (path, ';'.join(print_actions)))
+
         else:
-            print '\n%s' % path
-            for p in print_actions:
-               print '\t%s' % p
+            print(f'\n{path}')
+            for print_action in print_actions:
+                print(f'\t{print_action}')
+
+if __name__ == '__main__':
+    main()
