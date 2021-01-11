@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python2
 # -*- coding: utf-8 -*-
 
 # Displays differences in 2 Btrfs snapshots (from the same subvolume
@@ -423,7 +423,7 @@ if __name__ == "__main__":
                     print_actions.append('renamed from "%s"' % cmd[1])
 
             elif a[0] == 'set_xattr':
-                print_actions.append('xattr %s %d' % cmd[1:])
+                print_actions.append('xattr %s %s' % cmd[1:])
 
             elif a[0] == 'update_extent':
                 extents .append(cmd[1:])
