@@ -88,9 +88,8 @@ class BtrfsStream(object):
         attr, l_attr = unpack('<HH', self.stream[index:index + self.l_tlv])
         if self.send_attrs[attr] != attr_type:
             raise ValueError('Unexpected attribute %s' % self.send_attrs[attr])
-        # XXX l_attr])
-        ret, = unpack('<H', self.stream[
-                      index + self.l_tlv:index + self.l_tlv + 2])
+        ret = unpack('<%dB' % l_attr, self.stream[
+                      index + self.l_tlv:index + self.l_tlv + l_attr])
         return index + self.l_tlv + l_attr, ret
 
     def _tlv_get_string(self, attr_type, index):
@@ -113,7 +112,7 @@ class BtrfsStream(object):
         attr, l_attr = unpack('<HH', self.stream[index:index + self.l_tlv])
         if self.send_attrs[attr] != attr_type:
             raise ValueError('Unexpected attribute %s' % self.send_attrs[attr])
-        ret = unpack('<' + 'B' * self.BTRFS_UUID_SIZE,
+        ret = unpack('<%dB' % self.BTRFS_UUID_SIZE,
                      self.stream[index + self.l_tlv:index + self.l_tlv + l_attr])
         return index + self.l_tlv + l_attr, ''.join(['%02x' % x for x in ret])
 
@@ -156,15 +155,6 @@ class BtrfsStream(object):
                     (command[13:].lower(), count))
                 commands.append((command[13:].lower(), path, path_to))
 
-            elif command == 'BTRFS_SEND_C_SYMLINK':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
-                # XXX BTRFS_SEND_A_PATH_LINK in send-self.stream.c ???
-                idx2, ino = self._tlv_get_string('BTRFS_SEND_A_INO', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), ino))
-
             elif command == 'BTRFS_SEND_C_LINK':
                 idx2, path = self._tlv_get_string(
                     'BTRFS_SEND_A_PATH', idx + self.l_head)
@@ -184,12 +174,33 @@ class BtrfsStream(object):
                     (command[13:].lower(), count))
                 commands.append((command[13:].lower(), atime, mtime, ctime))
 
-            elif command in 'BTRFS_SEND_C_MKFILE BTRFS_SEND_C_MKDIR BTRFS_SEND_C_MKFIFO BTRFS_SEND_C_MKSOCK BTRFS_SEND_C_UNLINK BTRFS_SEND_C_RMDIR '.split():
+            elif command in 'BTRFS_SEND_C_MKFILE BTRFS_SEND_C_MKDIR BTRFS_SEND_C_UNLINK BTRFS_SEND_C_RMDIR'.split():
                 idx2, path = self._tlv_get_string(
                     'BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, ino = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
                 modified.setdefault(path, []).append(
                     (command[13:].lower(), count))
                 commands.append((command[13:].lower()))
+
+            elif command == 'BTRFS_SEND_C_SYMLINK':
+                idx2, path = self._tlv_get_string(
+                    'BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, ino = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
+                idx2, path_link = self._tlv_get_string(
+                    'BTRFS_SEND_A_PATH_LINK', idx2)
+                modified.setdefault(path, []).append(
+                    (command[13:].lower(), count))
+                commands.append((command[13:].lower(), path_link))
+
+            elif command in 'BTRFS_SEND_C_MKNOD BTRFS_SEND_C_MKFIFO BTRFS_SEND_C_MKSOCK':
+                idx2, path = self._tlv_get_string(
+                    'BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, ino = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
+                idx2, rdev = self._tlv_get_u64('BTRFS_SEND_A_RDEV', idx2)
+                idx2, mode = self._tlv_get_u64('BTRFS_SEND_A_MODE', idx2)
+                modified.setdefault(path, []).append(
+                    (command[13:].lower(), count))
+                commands.append((command[13:].lower(), mode, rdev))
 
             elif command == 'BTRFS_SEND_C_TRUNCATE':
                 idx2, path = self._tlv_get_string(
@@ -223,15 +234,6 @@ class BtrfsStream(object):
                 modified.setdefault(path, []).append(
                     (command[13:].lower(), count))
                 commands.append((command[13:].lower(), uuid, ctransid))
-
-            elif command == 'BTRFS_SEND_C_MKNOD':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
-                idx2, mode = self._tlv_get_u64('BTRFS_SEND_A_MODE', idx2)
-                idx2, rdev = self._tlv_get_u64('BTRFS_SEND_A_RDEV', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), mode, rdev))
 
             elif command == 'BTRFS_SEND_C_SET_XATTR':
                 idx2, path = self._tlv_get_string(
@@ -348,8 +350,10 @@ if __name__ == "__main__":
 
     if args.parent is not None:
         if args.child is not None:
+            # TODO add option to ommit '--no-data'
+            stream_file = '/tmp/snaps-diff'
             cmd = ['btrfs', 'send', '-p', args.parent, '--no-data',
-                   '-f', '/tmp/snaps-diff', args.child]
+                   '-f', stream_file, args.child]
             try:
                 subprocess.check_call(cmd)
 
@@ -357,7 +361,6 @@ if __name__ == "__main__":
                 printerr('Error: %s\nexecuting "%s"\n' %
                          (exc_info()[0], ' '.join(cmd)))
                 exit(1)
-            stream_file = '/tmp/snaps-diff'
         else:
             printerr('Error: parent needs child!\n')
             parser.print_help()
@@ -461,8 +464,8 @@ if __name__ == "__main__":
                     'snapshot: uuid=%s, ctrasid=%d, clone_uuid=%s, clone_ctransid=%d' % cmd[1:])
 
             elif a[0] == 'write':
-                # XXX cmd[2] is data, but what does it represent?
                 print_actions.append('write: from %d' % cmd[1])
+                print_actions.append('data: \n' + ''.join([chr(c) for c in cmd[2]]))  # convert bytes to string
 
             else:
                 print_actions.append('%s, %s %s' % (a, cmd, '-' * 20))
