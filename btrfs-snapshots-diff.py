@@ -130,10 +130,11 @@ class BtrfsStream():
         return index + self.l_tlv + l_attr, float(sec) + nanos * 1e-9
 
     def decode(self):
-        ''' Decodes commands + attributes from send stream '''
+        ''' Decodes commands + attributes from send stream
+        '''
         idx = 17
         count = 0
-        # List of commands
+        # List of commands sequentially decoded
         commands = []
         # modified[path] = [(command, cmd_ref), ...]
         modified = OrderedDict()
@@ -147,190 +148,237 @@ class BtrfsStream():
             except IndexError:
                 raise ValueError(f'Unkown command {cmd}')
 
+            cmd_short = command[13:].lower()
+
             if command == 'BTRFS_SEND_C_RENAME':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
-                idx2, path_to = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH_TO', idx2)
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, path_to = self._tlv_get_string('BTRFS_SEND_A_PATH_TO', idx2)
                 # Add bogus renamed_from command on destination to keep track
                 # of what happened
-                modified.setdefault(path_to, []).append(
-                    ('renamed_from', count))
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), path, path_to))
+                modified.setdefault(path_to, []).append(count)
+                commands.append({
+                    'command': 'renamed_from',
+                    'path':    path,
+                    'path_to': path_to
+                })
+                count += 1
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command': cmd_short,
+                    'path':    path,
+                    'path_to': path_to
+                })
+
+            elif command == 'BTRFS_SEND_C_SYMLINK':
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, ino = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
+                idx2, path_link = self._tlv_get_string('BTRFS_SEND_A_PATH_LINK', idx2)
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command': cmd_short,
+                    'path_link': path_link,
+                    'inode': ino
+                })
 
             elif command == 'BTRFS_SEND_C_LINK':
                 idx2, path = self._tlv_get_string(
                     'BTRFS_SEND_A_PATH', idx + self.l_head)
                 idx2, path_link = self._tlv_get_string(
                     'BTRFS_SEND_A_PATH_LINK', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), path_link))
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command':   cmd_short,
+                    'path':      path,
+                    'path_link': path_link
+                })
 
             elif command == 'BTRFS_SEND_C_UTIMES':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
                 idx2, atime = self._tlv_get_timespec('BTRFS_SEND_A_ATIME', idx2)
                 idx2, mtime = self._tlv_get_timespec('BTRFS_SEND_A_MTIME', idx2)
                 idx2, ctime = self._tlv_get_timespec('BTRFS_SEND_A_CTIME', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), atime, mtime, ctime))
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command':       cmd_short,
+                    'path':          path,
+                    'atime':   atime,
+                    'mtime': mtime,
+                    'ctime':  ctime
+                })
 
             elif command in 'BTRFS_SEND_C_MKFILE BTRFS_SEND_C_MKDIR BTRFS_SEND_C_UNLINK BTRFS_SEND_C_RMDIR'.split():
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower()))
-
-            elif command == 'BTRFS_SEND_C_SYMLINK':
                 idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
-                # 2nd field is inode, not used here
-                idx2, _ = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
-                idx2, path_link = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH_LINK', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), path_link))
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command': cmd_short,
+                    'path':    path
+                })
 
-            elif command in 'BTRFS_SEND_C_MKNOD BTRFS_SEND_C_MKFIFO BTRFS_SEND_C_MKSOCK':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
-                # 2nd field is inode, not used here
-                idx2, _ = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
+            elif command in 'BTRFS_SEND_C_MKFIFO BTRFS_SEND_C_MKSOCK'.split():
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, ino = self._tlv_get_u64('BTRFS_SEND_A_INO', idx2)
                 idx2, rdev = self._tlv_get_u64('BTRFS_SEND_A_RDEV', idx2)
                 idx2, mode = self._tlv_get_u64('BTRFS_SEND_A_MODE', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), mode, rdev))
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command': cmd_short,
+                    'ino': ino,
+                    'path': path,
+                    'rdev': rdev
+                })
 
             elif command == 'BTRFS_SEND_C_TRUNCATE':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
                 idx2, size = self._tlv_get_u64('BTRFS_SEND_A_SIZE', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), size))
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command': cmd_short,
+                    'path': path,
+                    'to_size': size
+                })
 
             elif command == 'BTRFS_SEND_C_SNAPSHOT':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
                 idx2, uuid = self._tlv_get_uuid('BTRFS_SEND_A_UUID', idx2)
-                idx2, ctransid = self._tlv_get_u64(
-                    'BTRFS_SEND_A_CTRANSID', idx2)
-                idx2, clone_uuid = self._tlv_get_uuid(
-                    'BTRFS_SEND_A_CLONE_UUID', idx2)
-                idx2, clone_ctransid = self._tlv_get_u64(
-                    'BTRFS_SEND_A_CLONE_CTRANSID', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), uuid, ctransid,
-                                 clone_uuid, clone_ctransid))
+                idx2, ctransid = self._tlv_get_u64('BTRFS_SEND_A_CTRANSID', idx2)
+                idx2, clone_uuid = self._tlv_get_uuid('BTRFS_SEND_A_CLONE_UUID', idx2)
+                idx2, clone_ctransid = self._tlv_get_u64('BTRFS_SEND_A_CLONE_CTRANSID', idx2)
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command': cmd_short,
+                    'path': path,
+                    'uuid': uuid,
+                    'ctransid': ctransid,
+                    'clone_uuid': clone_uuid,
+                    'clone_ctransid': clone_ctransid
+                })
 
             elif command == 'BTRFS_SEND_C_SUBVOL':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
                 idx2, uuid = self._tlv_get_uuid('BTRFS_SEND_A_UUID', idx2)
-                idx2, ctransid = self._tlv_get_u64(
-                    'BTRFS_SEND_A_CTRANSID', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), uuid, ctransid))
+                idx2, ctransid = self._tlv_get_u64('BTRFS_SEND_A_CTRANSID', idx2)
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command': cmd_short,
+                    'path':    path,
+                    'uuid':    uuid,
+                    'ctrans_id': ctransid
+                })
+
+            elif command == 'BTRFS_SEND_C_MKNOD':
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, mode = self._tlv_get_u64('BTRFS_SEND_A_MODE', idx2)
+                idx2, rdev = self._tlv_get_u64('BTRFS_SEND_A_RDEV', idx2)
+                commands.append({
+                    'command': cmd_short,
+                    'path':    path,
+                    'mode':    mode,
+                    'rdev':    rdev
+                })
 
             elif command == 'BTRFS_SEND_C_SET_XATTR':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
-                idx2, xattr_name = self._tlv_get_string(
-                    'BTRFS_SEND_A_XATTR_NAME', idx2)
-                idx2, xattr_data = self._tlv_get(
-                    'BTRFS_SEND_A_XATTR_DATA', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), xattr_name, xattr_data))
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, xattr_name = self._tlv_get_string('BTRFS_SEND_A_XATTR_NAME', idx2)
+                idx2, xattr_data = self._tlv_get('BTRFS_SEND_A_XATTR_DATA', idx2)
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command': cmd_short,
+                    'path': path,
+                    'xattr_name': xattr_name,
+                    'xattr_data': xattr_data
+                })
 
             elif command == 'BTRFS_SEND_C_REMOVE_XATTR':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
-                idx2, xattr_name = self._tlv_get_string(
-                    'BTRFS_SEND_A_XATTR_NAME', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), xattr_name))
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, xattr_name = self._tlv_get_string('BTRFS_SEND_A_XATTR_NAME', idx2)
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command': cmd_short,
+                    'path': path,
+                    'xattr_name': xattr_name
+                })
 
             elif command == 'BTRFS_SEND_C_WRITE':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
-                idx2, file_offset = self._tlv_get_u64(
-                    'BTRFS_SEND_A_FILE_OFFSET', idx2)
-                idx2, data = self._tlv_get(
-                    'BTRFS_SEND_A_DATA', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append(
-                    (command[13:].lower(), file_offset, data))
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, file_offset = self._tlv_get_u64('BTRFS_SEND_A_FILE_OFFSET', idx2)
+                idx2, data = self._tlv_get('BTRFS_SEND_A_DATA', idx2)
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command': cmd_short,
+                    'path': path,
+                    'file_offset': file_offset,
+                    'data': data
+                })
 
             elif command == 'BTRFS_SEND_C_CLONE':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
-                idx2, file_offset = self._tlv_get_u64(
-                    'BTRFS_SEND_A_FILE_OFFSET', idx2)
-                idx2, clone_len = self._tlv_get_u64(
-                    'BTRFS_SEND_A_CLONE_LEN', idx2)
-                idx2, clone_uuid = self._tlv_get_uuid(
-                    'BTRFS_SEND_A_CLONE_UUID', idx2)
-                idx2, clone_transid = self._tlv_get_u64(
-                    'BTRFS_SEND_A_CLONE_TRANSID', idx2)
-                idx2, clone_path = self._tlv_get_string(
-                    'BTRFS_SEND_A_CLONE_PATH', idx + self.l_head)  # BTRFS_SEND_A_CLONE8PATH
-                # 2nd field is clone offset, not used here
-                idx2, _ = self._tlv_get_u64('BTRFS_SEND_A_CLONE_OFFSET', idx2)
-                modified.setdefault(path, []).append((command[13:].lower(), count))
-                commands.append((command[13:].lower(),
-                                 file_offset,
-                                 clone_len,
-                                 clone_uuid,
-                                 clone_transid,
-                                 clone_path))
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, file_offset = self._tlv_get_u64('BTRFS_SEND_A_FILE_OFFSET', idx2)
+                idx2, clone_len = self._tlv_get_u64('BTRFS_SEND_A_CLONE_LEN', idx2)
+                idx2, clone_uuid = self._tlv_get_uuid('BTRFS_SEND_A_CLONE_UUID', idx2)
+                idx2, clone_transid = self._tlv_get_u64('BTRFS_SEND_A_CLONE_TRANSID', idx2)
+                idx2, clone_path = self._tlv_get_string('BTRFS_SEND_A_CLONE_PATH', idx + self.l_head)  # BTRFS_SEND_A_CLONE8PATH
+                idx2, clone_offset = self._tlv_get_u64('BTRFS_SEND_A_CLONE_OFFSET', idx2)
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command': cmd_short,
+                    'path': path,
+                    'file_offset': file_offset,
+                    'clone_len': clone_len,
+                    'clone_uuid': clone_uuid,
+                    'clone_transid': clone_transid,
+                    'clone_path':    clone_path,
+                    'clone_offset':  clone_offset
+                })
 
             elif command == 'BTRFS_SEND_C_CHMOD':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
                 idx2, mode = self._tlv_get_u64('BTRFS_SEND_A_MODE', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), mode))
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command': cmd_short,
+                    'path': path,
+                    'mode': mode
+                })
 
             elif command == 'BTRFS_SEND_C_CHOWN':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
                 idx2, uid = self._tlv_get_u64('BTRFS_SEND_A_UID', idx2)
                 idx2, gid = self._tlv_get_u64('BTRFS_SEND_A_GID', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), uid, gid))
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command': cmd_short,
+                    'path': path,
+                    'user_id': uid,
+                    'group_id': gid
+                })
 
             elif command == 'BTRFS_SEND_C_UPDATE_EXTENT':
-                idx2, path = self._tlv_get_string(
-                    'BTRFS_SEND_A_PATH', idx + self.l_head)
-                idx2, file_offset = self._tlv_get_u64(
-                    'BTRFS_SEND_A_FILE_OFFSET', idx2)
+                idx2, path = self._tlv_get_string('BTRFS_SEND_A_PATH', idx + self.l_head)
+                idx2, file_offset = self._tlv_get_u64('BTRFS_SEND_A_FILE_OFFSET', idx2)
                 idx2, size = self._tlv_get_u64('BTRFS_SEND_A_SIZE', idx2)
-                modified.setdefault(path, []).append(
-                    (command[13:].lower(), count))
-                commands.append((command[13:].lower(), file_offset, size))
+                modified.setdefault(path, []).append(count)
+                commands.append({
+                    'command': cmd_short,
+                    'path': path,
+                    'file_offset': file_offset,
+                    'size': size
+                })
 
             elif command == 'BTRFS_SEND_C_END':
-                commands.append((command[13:].lower(), idx + self.l_head, len(self.stream)))
+                commands.append({
+                    'command': cmd_short,
+                    'headers_length': idx + self.l_head,
+                    'stream_length': len(self.stream)
+                })
                 break
 
             elif command == 'BTRFS_SEND_C_UNSPEC':
-                pass
+                commands.append({
+                    'command': cmd_short
+                })
 
             else:
-                # Shoud not happen
+                # Shoud not happen!
                 raise ValueError(f'Unexpected command "{command}"')
 
             idx += self.l_head + l_cmd
@@ -395,8 +443,8 @@ def main():
     stream = BtrfsStream(stream_file)
     if stream.version is None:
         exit(1)
-    print(f'Found a valid Btrfs stream header, version {stream.version}')
-    modified, commands = stream.decode()
+    printerr(f'Found a valid Btrfs stream header, version {stream.version}')
+    modified, commands, paths = stream.decode()
 
     # Temporary files / dirs / links... created by btrfs send: they are later
     # renamed to definitive files / dirs / links...
@@ -408,10 +456,10 @@ def main():
 
         if args.filter and re_tmp.match(path):
             # Don't display files created temporarily and later renamed
-            if not (actions[0][0] in ('mkfile', 'mkdir', 'symlink') and \
-                    actions[1][0] == 'rename') and \
-                    not (actions[0][0] == ('renamed_from') and \
-                    actions[1][0] == 'rmdir'):
+            if not (commands[actions[0]]['command'] in ('mkfile', 'mkdir', 'symlink') and \
+                    commands[actions[1]]['command'] == 'rename') and \
+                    not (commands[actions[0]]['command'] == ('renamed_from') and \
+                    commands[actions[1]]['command'] == 'rmdir'):
                 print(f'{path}\n\t{actions} {"=" * 20}')
             continue
 
@@ -424,72 +472,75 @@ def main():
 
         for action in actions:
 
-            cmd = commands[action[1]]
+            cmd = commands[action]
+            cmd_short = cmd['command']
 
-            if prev_action == 'update_extent' and action[0] != 'update_extent':
+            if prev_action == 'update_extent' and cmd_short != 'update_extent':
                 print_actions.append('update extents %d -> %d' % (
                     extents[0][0],
                     extents[-1][0] + extents[-1][1]))
 
-            if action[0] == 'renamed_from':
-                if args.filter and re_tmp.match(cmd[1]):
+            if cmd_short == 'renamed_from':
+                if args.filter and re_tmp.match(cmd_short):
                     if prev_action == 'unlink':
                         del print_actions[-1]
                         print_actions.append('rewritten')
                     else:
                         print_actions.append('created')
                 else:
-                    print_actions.append('renamed from "%s"' % cmd[1])
+                    print_actions.append(f'renamed from "{cmd["path"]}"')
 
-            elif action[0] == 'set_xattr':
-                print_actions.append('xattr %s %s' % cmd[1:])
+            elif cmd_short == 'set_xattr':
+                print_actions.append(f'xattr {cmd["xattr_name"]} {cmd["xattr_data"]}')
 
-            elif action[0] == 'update_extent':
-                extents .append(cmd[1:])
+            elif cmd_short == 'update_extent':
+                extents.append((cmd['file_offset'], cmd['size']))
 
-            elif action[0] == 'truncate':
-                print_actions.append('truncate %d' % cmd[1])
+            elif cmd_short == 'truncate':
+                print_actions.append(f'truncate {cmd["to_size"]:d}')
 
-            elif action[0] == 'chown':
-                print_actions.append('owner %d:%d' % cmd[1:])
+            elif cmd_short == 'chown':
+                print_actions.append(f'owner {cmd["user_id"]}:{cmd["group_id"]}')
 
-            elif action[0] == 'chmod':
-                print_actions.append('mode %o' % cmd[1])
+            elif cmd_short == 'chmod':
+                print_actions.append(f'mode {cmd["mode"]:o}')
 
-            elif action[0] == 'link':
-                print_actions.append('link to "%s"' % cmd[1])
+            elif cmd_short == 'link':
+                print_actions.append(f'link to "{cmd["path_link"]}"')
 
-            elif action[0] == 'symlink':
-                print_actions.append('symlink to "%s"' % cmd[1])
+            elif cmd_short == 'symlink':
+                print_actions.append(f'symlink to "{cmd["path_link"]}" (inode {cmd["inode"]})')
 
-            elif action[0] in ('unlink', 'mkfile', 'mkdir', 'mkfifo'):
-                print_actions.append(action[0])
+            elif cmd_short in ('unlink', 'mkfile', 'mkdir', 'mkfifo'):
+                print_actions.append(cmd_short)
 
-            elif action[0] == 'rename':
-                print_actions.append('rename to "%s"' % cmd[2])
+            elif cmd_short == 'rename':
+                print_actions.append(f'rename to "{cmd["path_to"]}')
 
-            elif action[0] == 'utimes':
+            elif cmd_short == 'utimes':
                 if args.filter and prev_action == 'utimes':
                     # Print only last utimes
                     del print_actions[-1]
-                print_actions.append(f'times a={time_str(cmd[1])} ' \
-                                     f'm={time_str(cmd[2])} ' \
-                                     f'c={time_str(cmd[3])}')
+                print_actions.append(f'times a={time_str(cmd["atime"])} ' \
+                                     f'm={time_str(cmd["mtime"])} ' \
+                                     f'c={time_str(cmd["ctime"])}')
 
-            elif action[0] == 'snapshot':
+            elif cmd_short == 'snapshot':
                 print_actions.append(
-                    'snapshot: uuid=%s, ctrasid=%d, clone_uuid=%s, clone_ctransid=%d' % cmd[1:])
+                    'snapshot: uuid={cmd["uuid"]}, ctransid={cmd["ctransid"]:d}, clone_uuid={cmd["clone_uuid"]}, clone_ctransid={cmd["clone_ctransid"]:d}')
 
-            elif action[0] == 'write':
+            elif cmd_short == 'write':
                 print_actions.append('write: from %d' % cmd[1])
                 print_actions.append('data: \n' + ''.join([chr(c) for c in cmd[2]]))  # convert bytes to string
 
             else:
                 print_actions.append('%s, %s %s' % (action, cmd, '-' * 20))
-            prev_action = action[0]
+            prev_action = cmd_short
 
         if args.csv:
-            print('%s;%s' % (path, ';'.join(print_actions)))
+            sep = ';'
+            esc_sep = '\\' + sep
+            print(f'{path.replace(sep, esc_sep)}{sep}{sep.join([a.replace(sep, esc_sep) for a in print_actions])}')
 
         else:
             print(f'\n{path}')

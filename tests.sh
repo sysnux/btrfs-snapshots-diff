@@ -15,9 +15,9 @@ function clean_up {
 }
 
 clean_up
-btrfs sub create ./btrfs-diff-tests
-btrfs fil sync ./btrfs-diff-tests
-btrfs sub snap -r ./btrfs-diff-tests ./btrfs-diff-tests.parent
+btrfs subvolume create ./btrfs-diff-tests
+btrfs filesystem sync ./btrfs-diff-tests
+btrfs subvolume snap -r ./btrfs-diff-tests ./btrfs-diff-tests.parent
 sleep 1
 btrfs fil sync ./btrfs-diff-tests.parents
 
@@ -27,15 +27,24 @@ mkdir dir
 mkfifo fifo
 ln file hardlink
 ln -s file symlink
-echo 'Hello Btrfs' > file
+echo 'Hello Btrfs' > 'xxx;yyy;zzz'
+mv file file2
 popd
 
-btrfs fil sync ./btrfs-diff-tests
-btrfs sub snap -r ./btrfs-diff-tests ./btrfs-diff-tests.child
-btrfs fil sync ./btrfs-diff-tests.child
+btrfs filesystem sync ./btrfs-diff-tests
+btrfs subvolume snap -r ./btrfs-diff-tests ./btrfs-diff-tests.child
+btrfs filesystem sync ./btrfs-diff-tests.child
 
 dir=$(pwd)
+echo 'btrfs-snapshots-diff.py normal output:'
+echo '======================================'
 sudo $dir/btrfs-snapshots-diff.py -p btrfs-diff-tests.parent -c btrfs-diff-tests.child
+echo
+
+echo 'btrfs-snapshots-diff.py CSV output:'
+echo '==================================='
+sudo $dir/btrfs-snapshots-diff.py -p btrfs-diff-tests.parent -c btrfs-diff-tests.child --csv
+echo
 
 clean_up
 
