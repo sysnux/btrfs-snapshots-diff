@@ -444,7 +444,7 @@ def main():
     if stream.version is None:
         exit(1)
     printerr(f'Found a valid Btrfs stream header, version {stream.version}')
-    modified, commands, paths = stream.decode()
+    modified, commands = stream.decode()
 
     # Temporary files / dirs / links... created by btrfs send: they are later
     # renamed to definitive files / dirs / links...
