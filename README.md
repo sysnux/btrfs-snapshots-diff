@@ -15,27 +15,40 @@ Can read data from parent and current snapshots, or from diff file created with:
 
 Usage
 -----
+   usage: btrfs-snapshots-diff.py [-h] [-p PARENT] [-c CHILD] [-f FILE] [-t] [-a] [-s] [-j] [-b]
 
-    usage: btrfs-snapshots-diff.py [-h] [-p PARENT] [-c CHILD] [-f FILE] [-t] [-s]
-    
-    Display differences between two Btrfs snapshots
-    
-    optional arguments:
-      -h, --help            show this help message and exit
-      -p PARENT, --parent PARENT
-                            parent snapshot (must exists and be readonly)
-      -c CHILD, --child CHILD
-                            child snapshot (will be created if it does not exist)
-      -f FILE, --file FILE  diff file
-      -t, --filter          does not display temporary files, nor all time
-                            modifications (just latest)
-      -s, --csv             CSV output
+   Display differences between 2 Btrfs snapshots
+
+   optional arguments:
+     -h, --help            show this help message and exit
+     -p PARENT, --parent PARENT
+                        parent snapshot (must exists and be readonly)
+     -c CHILD, --child CHILD
+                        child snapshot (will be created if it does not exist)
+     -f FILE, --file FILE  diff file
+     -t, --filter          does not display temporary files, nor all time modifications
+                        (just latest)
+     -a, --by_path         Group commands by path
+     -s, --csv             CSV output
+     -j, --json            JSON output (commands only)
+     -b, --bogus           Add bogus renamed_from action (used only when grouping by path)
+
+
+Option `--json` (`-j`), available for commands only, will output a list of 
+commands in JSON format.
 
 Option `--csv` (`-s`) will produce on line for each modification, instead of 
 formatted output: the first column is the path, then each action taken on the 
 file is in a new column. Separator is ";".
 
-With option `--filter` (`-t`), the script tries to be a bit smarter:
+Option `--by_path` (`-a`) groups command by path, giving a better view of what 
+happenned on the file system.
+
+`--bogus` (`-b`)  adds a bogus command to the stream, to better track renaming of 
+files / dir (only usefull with `--by_path`).
+
+With option `--filter` (`-t`), the script tries to be a bit smarter (only usefull 
+with `--by_path`):
  * it does not display temporary files created by send stream,
  * it displays 'created' or 'rewritten' on the files renamed from temporary files,
  * it displays only the latest time modifications, if there are two or more.
@@ -110,14 +123,11 @@ and last calling btrfs-snapshots-diff to display the differences (see test.sh).
 
 Requirements
 ------------
-No requirements besides Python-2!
+No requirements besides Python-3!
 
 Bugs
 ----
-There is something wrong with the symlinks, as can be seen in example above,
-can't find what...
-
-There are probably other bugs, though it works for me on my own snapshots.
+There are probably bugs, though it works for me on my own snapshots.
 
 
 License
