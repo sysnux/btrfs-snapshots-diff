@@ -38,12 +38,17 @@ btrfs filesystem sync ./btrfs-diff-tests.child
 dir=$(pwd)
 echo 'btrfs-snapshots-diff.py normal output:'
 echo '======================================'
-sudo $dir/btrfs-snapshots-diff.py -p btrfs-diff-tests.parent -c btrfs-diff-tests.child
+sudo $dir/btrfs-snapshots-diff.py -p btrfs-diff-tests.parent -c btrfs-diff-tests.child --by_path --bogus --filter
 echo
 
 echo 'btrfs-snapshots-diff.py CSV output:'
 echo '==================================='
 sudo $dir/btrfs-snapshots-diff.py -p btrfs-diff-tests.parent -c btrfs-diff-tests.child --csv
+echo
+
+echo 'btrfs-snapshots-diff.py JSON output:'
+echo '===================================='
+sudo $dir/btrfs-snapshots-diff.py -p btrfs-diff-tests.parent -c btrfs-diff-tests.child --json | jq
 echo
 
 clean_up
