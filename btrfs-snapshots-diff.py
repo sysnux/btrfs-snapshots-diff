@@ -592,6 +592,7 @@ def main():
                 '-f',
                 stream_file,
                 args.child,
+                '-q',
             ]
             try:
                 subprocess.check_call(cmd)
