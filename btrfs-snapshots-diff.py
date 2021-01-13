@@ -614,10 +614,10 @@ def main():
     stream = BtrfsStream(stream_file)
     if stream.version is None:
         exit(1)
-    printerr(f'Found a valid Btrfs stream header, version {stream.version}\n')
     commands, paths = stream.decode(bogus=args.bogus)
 
     if args.by_path:
+        print(f'Found a valid Btrfs stream header, version {stream.version}\n')
         print_by_paths(paths, commands, args.filter, args.csv)
 
     elif args.csv:
