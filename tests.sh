@@ -1,4 +1,5 @@
 #!/bin/bash 
+# Note: Use '--inspect' parameter to prevent cleaning up for further inspections.
 set -u
 
 test_sub="./btrfs-diff-tests"
@@ -56,5 +57,5 @@ echo '===================================='
 sudo $dir/btrfs-snapshots-diff.py -p $old -c $new --json | jq '.' 
 echo
 
-clean_up
+[[ "${1:-}" == "--inspect" ]] || clean_up
 
