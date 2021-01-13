@@ -74,8 +74,13 @@ git checkout -- tests.output
 
 Requirements
 ------------
+No requirements besides Python-3 (>=3.6), and btrfs obviously.
 
+jq, the command-line JSON processor (https://github.com/stedolan/jq/), will be 
+used in tests.sh, to give a better ouput if it is installed. Raw JSON will be 
+displayed if jq is not available, so jq is not mandatory.
 ```
+dnf install jq
 apt-get install jq
 ```
 

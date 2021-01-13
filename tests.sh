@@ -42,8 +42,8 @@ btrfs subvolume snap -r $test_sub $new
 btrfs filesystem sync $new
 
 dir=$(pwd)
-echo 'btrfs-snapshots-diff.py normal output:'
-echo '======================================'
+echo 'btrfs-snapshots-diff.py group by path output:'
+echo '============================================='
 sudo $dir/btrfs-snapshots-diff.py -p $old -c $new --by_path --bogus --filter
 echo
 
@@ -54,7 +54,11 @@ echo
 
 echo 'btrfs-snapshots-diff.py JSON output:'
 echo '===================================='
-sudo $dir/btrfs-snapshots-diff.py -p $old -c $new --json | jq '.' 
+if jq --version &> /dev/null ; then
+   sudo $dir/btrfs-snapshots-diff.py -p $old -c $new --json | jq '.'
+else
+   sudo $dir/btrfs-snapshots-diff.py -p $old -c $new --json
+fi
 echo
 
 [[ "${1:-}" == "--inspect" ]] || clean_up
