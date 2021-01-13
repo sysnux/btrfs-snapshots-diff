@@ -1,27 +1,32 @@
+#!/bin/bash 
+set -u
 
-#set -x
-function clean_up {
-   if [ -d btrfs-diff-tests ] ; then
-      sudo btrfs sub del -c ./btrfs-diff-tests
-   fi
+test_sub="./btrfs-diff-tests"
+old="${test_sub}.parent"
+new="${test_sub}.child"
 
-   if [ -d btrfs-diff-tests.parent ] ; then
-      sudo btrfs sub del -c ./btrfs-diff-tests.parent
-   fi
-
-   if [ -d btrfs-diff-tests.child ] ; then
-      sudo btrfs sub del -c ./btrfs-diff-tests.child
-   fi
+clean_up(){
+    for sub in $test_sub $old $new; do
+        [[ -d $sub ]] && sudo btrfs sub del -c $sub 
+    done
 }
 
-clean_up
-btrfs subvolume create ./btrfs-diff-tests
-btrfs filesystem sync ./btrfs-diff-tests
-btrfs subvolume snap -r ./btrfs-diff-tests ./btrfs-diff-tests.parent
-sleep 1
-btrfs fil sync ./btrfs-diff-tests.parent
+die(){
+    echo "ERROR: $@"
+    exit 1
+}
 
-pushd btrfs-diff-tests
+# Requirements
+hash jq || die "jq not found."
+
+clean_up
+btrfs subvolume create $test_sub
+btrfs filesystem sync $test_sub
+btrfs subvolume snap -r $test_sub $old
+sleep 1
+btrfs filesystem sync $old
+
+pushd $test_sub
 touch file
 mkdir dir
 mkfifo fifo
@@ -31,24 +36,24 @@ echo 'Hello Btrfs' > 'xxx;yyy;zzz'
 mv file file2
 popd
 
-btrfs filesystem sync ./btrfs-diff-tests
-btrfs subvolume snap -r ./btrfs-diff-tests ./btrfs-diff-tests.child
-btrfs filesystem sync ./btrfs-diff-tests.child
+btrfs filesystem sync $test_sub
+btrfs subvolume snap -r $test_sub $new
+btrfs filesystem sync $new
 
 dir=$(pwd)
 echo 'btrfs-snapshots-diff.py normal output:'
 echo '======================================'
-sudo $dir/btrfs-snapshots-diff.py -p btrfs-diff-tests.parent -c btrfs-diff-tests.child --by_path --bogus --filter
+sudo $dir/btrfs-snapshots-diff.py -p $old -c $new --by_path --bogus --filter
 echo
 
 echo 'btrfs-snapshots-diff.py CSV output:'
 echo '==================================='
-sudo $dir/btrfs-snapshots-diff.py -p btrfs-diff-tests.parent -c btrfs-diff-tests.child --csv
+sudo $dir/btrfs-snapshots-diff.py -p $old -c $new --csv
 echo
 
 echo 'btrfs-snapshots-diff.py JSON output:'
 echo '===================================='
-sudo $dir/btrfs-snapshots-diff.py -p btrfs-diff-tests.parent -c btrfs-diff-tests.child --json | jq
+sudo $dir/btrfs-snapshots-diff.py -p $old -c $new --json | jq
 echo
 
 clean_up
