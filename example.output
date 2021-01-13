@@ -1,0 +1,378 @@
+Cleaning up temporary subvolumes.
+Create subvolume './btrfs-diff-tests'
+Create a readonly snapshot of './btrfs-diff-tests' in './btrfs-diff-tests.parent'
+Create a readonly snapshot of './btrfs-diff-tests' in './btrfs-diff-tests.child'
+btrfs-snapshots-diff.py group by path output:
+=============================================
+Found a valid Btrfs stream header, version 1
+
+
+btrfs-diff-tests.child
+	snapshot: uuid=436dc6c97ff26a45843d9b252bc7c51a, ctransid=77379, clone_uuid=0ab20eca2dd6f548aa53f479f870fb16, clone_ctransid=77375
+
+__sub_root__
+	times a=2021/01/14 01:47:22 m=2021/01/14 01:47:25 c=2021/01/14 01:47:25
+
+__sub_root__
+	times a=2021/01/14 01:47:22 m=2021/01/14 01:47:25 c=2021/01/14 01:47:25
+
+__sub_root__
+	times a=2021/01/14 01:47:22 m=2021/01/14 01:47:25 c=2021/01/14 01:47:25
+
+__sub_root__
+	times a=2021/01/14 01:47:22 m=2021/01/14 01:47:25 c=2021/01/14 01:47:25
+
+__sub_root__
+	times a=2021/01/14 01:47:22 m=2021/01/14 01:47:25 c=2021/01/14 01:47:25
+
+__sub_root__
+	times a=2021/01/14 01:47:22 m=2021/01/14 01:47:25 c=2021/01/14 01:47:25
+
+__sub_root__
+	times a=2021/01/14 01:47:22 m=2021/01/14 01:47:25 c=2021/01/14 01:47:25
+
+hardlink
+	renamed from "o257-77379-0"
+
+hardlink
+	renamed from "o257-77379-0"
+	owner 1000:1000
+
+hardlink
+	renamed from "o257-77379-0"
+	owner 1000:1000
+	mode 644
+
+hardlink
+	renamed from "o257-77379-0"
+	owner 1000:1000
+	mode 644
+	times a=2021/01/14 01:47:25 m=2021/01/14 01:47:25 c=2021/01/14 01:47:25
+
+file2
+	link to "hardlink"
+
+dir
+	renamed from "o258-77379-0"
+
+dir
+	renamed from "o258-77379-0"
+	owner 1000:1000
+
+dir
+	renamed from "o258-77379-0"
+	owner 1000:1000
+	mode 755
+
+dir
+	renamed from "o258-77379-0"
+	owner 1000:1000
+	mode 755
+	times a=2021/01/14 01:47:25 m=2021/01/14 01:47:25 c=2021/01/14 01:47:25
+o259-77379-0
+	[18, 20] ====================
+
+fifo
+	renamed from "o259-77379-0"
+
+fifo
+	renamed from "o259-77379-0"
+	owner 1000:1000
+
+fifo
+	renamed from "o259-77379-0"
+	owner 1000:1000
+	mode 644
+
+fifo
+	renamed from "o259-77379-0"
+	owner 1000:1000
+	mode 644
+	times a=2021/01/14 01:47:25 m=2021/01/14 01:47:25 c=2021/01/14 01:47:25
+
+symlink
+	renamed from "o260-77379-0"
+
+symlink
+	renamed from "o260-77379-0"
+	owner 1000:1000
+
+symlink
+	renamed from "o260-77379-0"
+	owner 1000:1000
+	times a=2021/01/14 01:47:25 m=2021/01/14 01:47:25 c=2021/01/14 01:47:25
+
+xxx;yyy;zzz
+	renamed from "o261-77379-0"
+
+xxx;yyy;zzz
+	renamed from "o261-77379-0"
+
+xxx;yyy;zzz
+	renamed from "o261-77379-0"
+	update extents 0 -> 12
+	owner 1000:1000
+
+xxx;yyy;zzz
+	renamed from "o261-77379-0"
+	update extents 0 -> 12
+	owner 1000:1000
+	mode 644
+
+xxx;yyy;zzz
+	renamed from "o261-77379-0"
+	update extents 0 -> 12
+	owner 1000:1000
+	mode 644
+	times a=2021/01/14 01:47:25 m=2021/01/14 01:47:25 c=2021/01/14 01:47:25
+
+btrfs-snapshots-diff.py CSV output:
+===================================
+snapshot;clone_ctransid=77375;clone_uuid=0ab20eca2dd6f548aa53f479f870fb16;ctransid=77379;path=btrfs-diff-tests.child;uuid=436dc6c97ff26a45843d9b252bc7c51a
+utimes;atime=1610578042.0796149;ctime=1610578045.1116676;mtime=1610578045.1116676;path=
+mkfile;path=o257-77379-0
+rename;path=o257-77379-0;path_to=hardlink
+link;path=file2;path_link=hardlink
+utimes;atime=1610578042.0796149;ctime=1610578045.1116676;mtime=1610578045.1116676;path=
+utimes;atime=1610578042.0796149;ctime=1610578045.1116676;mtime=1610578045.1116676;path=
+chown;group_id=1000;path=hardlink;user_id=1000
+chmod;mode=420;path=hardlink
+utimes;atime=1610578045.1036675;ctime=1610578045.1116676;mtime=1610578045.1036675;path=hardlink
+mkdir;path=o258-77379-0
+rename;path=o258-77379-0;path_to=dir
+utimes;atime=1610578042.0796149;ctime=1610578045.1116676;mtime=1610578045.1116676;path=
+chown;group_id=1000;path=dir;user_id=1000
+chmod;mode=493;path=dir
+utimes;atime=1610578045.1076674;ctime=1610578045.1076674;mtime=1610578045.1076674;path=dir
+mkfifo;ino=259;path=o259-77379-0;rdev=0
+rename;path=o259-77379-0;path_to=fifo
+utimes;atime=1610578042.0796149;ctime=1610578045.1116676;mtime=1610578045.1116676;path=
+chown;group_id=1000;path=fifo;user_id=1000
+chmod;mode=420;path=fifo
+utimes;atime=1610578045.1076674;ctime=1610578045.1076674;mtime=1610578045.1076674;path=fifo
+symlink;inode=260;path_link=file
+rename;path=o260-77379-0;path_to=symlink
+utimes;atime=1610578042.0796149;ctime=1610578045.1116676;mtime=1610578045.1116676;path=
+chown;group_id=1000;path=symlink;user_id=1000
+utimes;atime=1610578045.1116676;ctime=1610578045.1116676;mtime=1610578045.1116676;path=symlink
+mkfile;path=o261-77379-0
+rename;path=o261-77379-0;path_to=xxx\;yyy\;zzz
+utimes;atime=1610578042.0796149;ctime=1610578045.1116676;mtime=1610578045.1116676;path=
+update_extent;file_offset=0;path=xxx\;yyy\;zzz;size=12
+chown;group_id=1000;path=xxx\;yyy\;zzz;user_id=1000
+chmod;mode=420;path=xxx\;yyy\;zzz
+utimes;atime=1610578045.1116676;ctime=1610578045.1116676;mtime=1610578045.1116676;path=xxx\;yyy\;zzz
+end;headers_length=1742;stream_length=1742
+
+btrfs-snapshots-diff.py JSON output:
+====================================
+[
+  {
+    "command": "snapshot",
+    "path": "btrfs-diff-tests.child",
+    "uuid": "436dc6c97ff26a45843d9b252bc7c51a",
+    "ctransid": 77379,
+    "clone_uuid": "0ab20eca2dd6f548aa53f479f870fb16",
+    "clone_ctransid": 77375
+  },
+  {
+    "command": "utimes",
+    "path": "",
+    "atime": 1610578042.0796149,
+    "mtime": 1610578045.1116676,
+    "ctime": 1610578045.1116676
+  },
+  {
+    "command": "mkfile",
+    "path": "o257-77379-0"
+  },
+  {
+    "command": "rename",
+    "path": "o257-77379-0",
+    "path_to": "hardlink"
+  },
+  {
+    "command": "link",
+    "path": "file2",
+    "path_link": "hardlink"
+  },
+  {
+    "command": "utimes",
+    "path": "",
+    "atime": 1610578042.0796149,
+    "mtime": 1610578045.1116676,
+    "ctime": 1610578045.1116676
+  },
+  {
+    "command": "utimes",
+    "path": "",
+    "atime": 1610578042.0796149,
+    "mtime": 1610578045.1116676,
+    "ctime": 1610578045.1116676
+  },
+  {
+    "command": "chown",
+    "path": "hardlink",
+    "user_id": 1000,
+    "group_id": 1000
+  },
+  {
+    "command": "chmod",
+    "path": "hardlink",
+    "mode": 420
+  },
+  {
+    "command": "utimes",
+    "path": "hardlink",
+    "atime": 1610578045.1036675,
+    "mtime": 1610578045.1036675,
+    "ctime": 1610578045.1116676
+  },
+  {
+    "command": "mkdir",
+    "path": "o258-77379-0"
+  },
+  {
+    "command": "rename",
+    "path": "o258-77379-0",
+    "path_to": "dir"
+  },
+  {
+    "command": "utimes",
+    "path": "",
+    "atime": 1610578042.0796149,
+    "mtime": 1610578045.1116676,
+    "ctime": 1610578045.1116676
+  },
+  {
+    "command": "chown",
+    "path": "dir",
+    "user_id": 1000,
+    "group_id": 1000
+  },
+  {
+    "command": "chmod",
+    "path": "dir",
+    "mode": 493
+  },
+  {
+    "command": "utimes",
+    "path": "dir",
+    "atime": 1610578045.1076674,
+    "mtime": 1610578045.1076674,
+    "ctime": 1610578045.1076674
+  },
+  {
+    "command": "mkfifo",
+    "ino": 259,
+    "path": "o259-77379-0",
+    "rdev": 0
+  },
+  {
+    "command": "rename",
+    "path": "o259-77379-0",
+    "path_to": "fifo"
+  },
+  {
+    "command": "utimes",
+    "path": "",
+    "atime": 1610578042.0796149,
+    "mtime": 1610578045.1116676,
+    "ctime": 1610578045.1116676
+  },
+  {
+    "command": "chown",
+    "path": "fifo",
+    "user_id": 1000,
+    "group_id": 1000
+  },
+  {
+    "command": "chmod",
+    "path": "fifo",
+    "mode": 420
+  },
+  {
+    "command": "utimes",
+    "path": "fifo",
+    "atime": 1610578045.1076674,
+    "mtime": 1610578045.1076674,
+    "ctime": 1610578045.1076674
+  },
+  {
+    "command": "symlink",
+    "path_link": "file",
+    "inode": 260
+  },
+  {
+    "command": "rename",
+    "path": "o260-77379-0",
+    "path_to": "symlink"
+  },
+  {
+    "command": "utimes",
+    "path": "",
+    "atime": 1610578042.0796149,
+    "mtime": 1610578045.1116676,
+    "ctime": 1610578045.1116676
+  },
+  {
+    "command": "chown",
+    "path": "symlink",
+    "user_id": 1000,
+    "group_id": 1000
+  },
+  {
+    "command": "utimes",
+    "path": "symlink",
+    "atime": 1610578045.1116676,
+    "mtime": 1610578045.1116676,
+    "ctime": 1610578045.1116676
+  },
+  {
+    "command": "mkfile",
+    "path": "o261-77379-0"
+  },
+  {
+    "command": "rename",
+    "path": "o261-77379-0",
+    "path_to": "xxx;yyy;zzz"
+  },
+  {
+    "command": "utimes",
+    "path": "",
+    "atime": 1610578042.0796149,
+    "mtime": 1610578045.1116676,
+    "ctime": 1610578045.1116676
+  },
+  {
+    "command": "update_extent",
+    "path": "xxx;yyy;zzz",
+    "file_offset": 0,
+    "size": 12
+  },
+  {
+    "command": "chown",
+    "path": "xxx;yyy;zzz",
+    "user_id": 1000,
+    "group_id": 1000
+  },
+  {
+    "command": "chmod",
+    "path": "xxx;yyy;zzz",
+    "mode": 420
+  },
+  {
+    "command": "utimes",
+    "path": "xxx;yyy;zzz",
+    "atime": 1610578045.1116676,
+    "mtime": 1610578045.1116676,
+    "ctime": 1610578045.1116676
+  },
+  {
+    "command": "end",
+    "headers_length": 1742,
+    "stream_length": 1742
+  }
+]
+
+Cleaning up temporary subvolumes.
