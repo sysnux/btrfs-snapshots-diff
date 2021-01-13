@@ -19,7 +19,7 @@ btrfs subvolume create ./btrfs-diff-tests
 btrfs filesystem sync ./btrfs-diff-tests
 btrfs subvolume snap -r ./btrfs-diff-tests ./btrfs-diff-tests.parent
 sleep 1
-btrfs fil sync ./btrfs-diff-tests.parents
+btrfs fil sync ./btrfs-diff-tests.parent
 
 pushd btrfs-diff-tests
 touch file
