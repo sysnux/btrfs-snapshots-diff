@@ -53,7 +53,7 @@ echo
 
 echo 'btrfs-snapshots-diff.py JSON output:'
 echo '===================================='
-sudo $dir/btrfs-snapshots-diff.py -p $old -c $new --json | jq
+sudo $dir/btrfs-snapshots-diff.py -p $old -c $new --json | jq '.' 
 echo
 
 clean_up
