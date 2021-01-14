@@ -569,7 +569,7 @@ def main():
         '-j', '--json', action='store_true', help='JSON output (commands only)'
     )
     parser.add_argument(
-        '--pretty', action='store_true', help='Pretty print the JSON output'
+        '--pretty', action='store_true', help=argparse.SUPPRESS
     )
     parser.add_argument(
         '-b',
