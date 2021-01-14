@@ -75,7 +75,7 @@ git checkout -- tests.output  # Cleanup the changes
 
 Requirements
 ------------
-No requirements besides Python-3 (>=3.6) and BTRFS obviously.
+No requirements besides Python-3 (>=3.6) and `btrfs` obviously.
 
 Bugs
 ----
