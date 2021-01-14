@@ -7,8 +7,9 @@ old="${test_sub}.parent"
 new="${test_sub}.child"
 
 clean_up(){
+    echo "Cleaning up temporary subvolumes."
     for sub in $test_sub $old $new; do
-        [[ -d $sub ]] && sudo btrfs sub del -c $sub 
+        [[ -d $sub ]] && sudo btrfs sub del -c $sub > /dev/null
     done
 }
 
@@ -24,7 +25,7 @@ btrfs subvolume snap -r $test_sub $old
 sleep 1
 btrfs filesystem sync $old
 
-pushd $test_sub
+cd $test_sub
 touch file
 mkdir dir
 mkfifo fifo
@@ -32,7 +33,7 @@ ln file hardlink
 ln -s file symlink
 echo 'Hello Btrfs' > 'xxx;yyy;zzz'
 mv file file2
-popd
+cd ..
 
 btrfs filesystem sync $test_sub
 btrfs subvolume snap -r $test_sub $new

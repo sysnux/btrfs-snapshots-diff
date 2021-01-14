@@ -50,8 +50,7 @@ with `--by_path`):
 
 Example
 -------
-See [./tests.output](./tests.output) file as an example output. These outputs are created regarding to 
-the changes made by [./tests.sh](./tests.sh): 
+See [./example.output](./example.output) file as the example of actions made by [./create-example.sh](./create-example.sh): 
 
 ```bash
 touch file
@@ -66,11 +65,10 @@ mv file file2
 Tests
 -----
 
+Verify all tests by running: 
+
 ```bash
-./tests.sh > tests.outputs    
-git diff                      # Inspect the differences visually. 
-                              # There should be no unexpected changes. See issue#13.
-git checkout -- tests.output  # Cleanup the changes
+./test.sh
 ```
 
 Requirements
