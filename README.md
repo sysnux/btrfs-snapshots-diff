@@ -26,12 +26,11 @@ Usage
          -a, --by_path         Group commands by path
          -s, --csv             CSV output
          -j, --json            JSON output (commands only)
-         --pretty              Pretty print the JSON output (Requires --json option)
          -b, --bogus           Add bogus renamed_from action (used only when grouping by path)
 
 
 * `--json` (`-j`), available for commands only, will output a list of 
-commands in JSON format. `--pretty` switch requires this option. 
+commands in JSON format.
 
 * `--csv` (`-s`) will produce on line for each modification, instead of 
 formatted output: the first column is the path, then each action taken on the 
