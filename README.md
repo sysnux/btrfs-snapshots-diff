@@ -73,7 +73,7 @@ Verify all tests by running:
 
 Requirements
 ------------
-No requirements besides Python-3 (>=3.6) and `btrfs` obviously.
+No requirements besides Python-3 (>=3.6) and `btrfs` command obviously.
 
 Bugs
 ----
