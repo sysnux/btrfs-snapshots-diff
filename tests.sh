@@ -17,9 +17,6 @@ die(){
     exit 1
 }
 
-# Requirements
-hash jq || die "jq not found."
-
 clean_up
 btrfs subvolume create $test_sub
 btrfs filesystem sync $test_sub
@@ -54,11 +51,7 @@ echo
 
 echo 'btrfs-snapshots-diff.py JSON output:'
 echo '===================================='
-if jq --version &> /dev/null ; then
-   sudo $dir/btrfs-snapshots-diff.py -p $old -c $new --json | jq '.'
-else
-   sudo $dir/btrfs-snapshots-diff.py -p $old -c $new --json
-fi
+sudo $dir/btrfs-snapshots-diff.py -p $old -c $new --json --pretty
 echo
 
 [[ "${1:-}" == "--inspect" ]] || clean_up

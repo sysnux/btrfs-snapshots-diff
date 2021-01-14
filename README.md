@@ -67,22 +67,15 @@ Tests
 -----
 
 ```bash
-./tests.sh > tests.output
-git diff  # inspect visually, there should be no unexpected changes. See issue#13.
-git checkout -- tests.output
+./tests.sh > tests.outputs    
+git diff                      # Inspect the differences visually. 
+                              # There should be no unexpected changes. See issue#13.
+git checkout -- tests.output  # Cleanup the changes
 ```
 
 Requirements
 ------------
-No requirements besides Python-3 (>=3.6), and btrfs obviously.
-
-jq, the command-line JSON processor (https://github.com/stedolan/jq/), will be 
-used in tests.sh, to give a better ouput if it is installed. Raw JSON will be 
-displayed if jq is not available, so jq is not mandatory.
-```
-dnf install jq
-apt-get install jq
-```
+No requirements besides Python-3 (>=3.6) and `btrfs` command obviously.
 
 Bugs
 ----

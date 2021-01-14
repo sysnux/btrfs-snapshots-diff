@@ -569,6 +569,9 @@ def main():
         '-j', '--json', action='store_true', help='JSON output (commands only)'
     )
     parser.add_argument(
+        '--pretty', action='store_true', help=argparse.SUPPRESS
+    )
+    parser.add_argument(
         '-b',
         '--bogus',
         action='store_true',
@@ -636,8 +639,10 @@ def main():
 
     elif args.json:
         import json  # pylint: disable=import-outside-toplevel
-
-        print(json.dumps(commands))
+        if args.pretty:
+            print(json.dumps(commands, indent=2))
+        else:
+            print(json.dumps(commands))            
 
     else:
         printerr('No output!\n')
