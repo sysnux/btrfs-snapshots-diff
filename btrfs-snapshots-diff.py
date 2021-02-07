@@ -637,17 +637,13 @@ def main():
                 print(f'{sep}{k}={v}', end='')
             print()
 
-    elif args.json:
+    else:
+        # JSON format is default
         import json  # pylint: disable=import-outside-toplevel
         if args.pretty:
             print(json.dumps(commands, indent=2))
         else:
             print(json.dumps(commands))            
-
-    else:
-        printerr('No output!\n')
-        parser.print_help()
-
 
 if __name__ == '__main__':
     main()
