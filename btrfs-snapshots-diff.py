@@ -630,6 +630,8 @@ def main():
         for key, count in command_counts.most_common():
             print(f'{count}\t{key}')
 
+        exit(0)
+
     if args.by_path:
         print(f'Found a valid Btrfs stream header, version {stream.version}\n')
         print_by_paths(paths, commands, args.filter, args.csv)
