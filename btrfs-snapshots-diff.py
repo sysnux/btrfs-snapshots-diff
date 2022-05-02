@@ -569,6 +569,9 @@ def main():
         '-j', '--json', action='store_true', help='JSON output (commands only)'
     )
     parser.add_argument(
+        '--stats', action='store_true', help='Print simple statistics'
+    )
+    parser.add_argument(
         '--pretty', action='store_true', help=argparse.SUPPRESS
     )
     parser.add_argument(
@@ -618,6 +621,14 @@ def main():
     if stream.version is None:
         exit(1)
     commands, paths = stream.decode(bogus=args.bogus)
+
+    if args.stats:
+        from collections import Counter
+
+        print('Commands:')
+        command_counts = Counter(list(map(lambda d: d["command"], commands)))
+        for key, count in command_counts.most_common():
+            print(f'{count}\t{key}')
 
     if args.by_path:
         print(f'Found a valid Btrfs stream header, version {stream.version}\n')
