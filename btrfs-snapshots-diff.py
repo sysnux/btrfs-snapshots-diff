@@ -626,7 +626,7 @@ def main():
         from collections import Counter
 
         print('Commands:')
-        command_counts = Counter(list(map(lambda d: d["command"], commands)))
+        command_counts = Counter(d["command"] for d in commands)
         for key, count in command_counts.most_common():
             print(f'{count}\t{key}')
 
